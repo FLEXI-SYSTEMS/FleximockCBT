@@ -248,7 +248,7 @@ prevBtn.onclick = () => { if(qIndex>0){ qIndex--; render(); } };
 nextBtn.onclick = () => { if(qIndex<filteredExamData[currentSubject].length-1){ qIndex++; render(); } };
 
 /******** TIMER ********/
-const total = 20*60;
+const total = 40*60;
 const endTime = Date.now() + total*1000;
 const timer = setInterval(()=>{
   const left = Math.max(0, Math.floor((endTime - Date.now())/1000));
