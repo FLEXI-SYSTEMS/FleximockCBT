@@ -67,6 +67,61 @@ body { margin:0; font-family:Arial, Helvetica, sans-serif; background:#f2f2f2; }
 /* ===== VOLUME BUTTON ===== */
 #volumeBtn { width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 #volumeBtn:hover { opacity:0.8; }
+
+  /* ===== DESKTOP ENHANCEMENT ===== */
+@media (min-width: 900px) {
+
+  body {
+    background: #e9ecef;
+  }
+
+  .header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-tools {
+    flex-direction: row;
+  }
+
+  #subjectTabs {
+    max-width: 1100px;
+    margin: 15px auto;
+    justify-content: center;
+  }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto 20px auto;
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 15px;
+  }
+
+  .question-box {
+    min-height: 380px;
+  }
+
+  #qnums {
+    max-height: 380px;
+    overflow-y: auto;
+    align-content: flex-start;
+    background: #fff;
+    padding: 10px;
+    border-radius: 6px;
+  }
+
+  .nav-buttons {
+    grid-column: 1 / span 2;
+  }
+
+  #submitBtn {
+    grid-column: 1 / span 2;
+    max-width: 300px;
+    margin: 10px auto 0 auto;
+  }
+}
 </style>
 </head>
 
