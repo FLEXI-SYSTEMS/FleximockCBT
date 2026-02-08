@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flexi CBT – Subject Selection</title>
-
 <style>
 body{
   margin:0;
@@ -19,6 +18,10 @@ body{
   padding:12px 18px;
   font-size:18px;
   font-weight:bold;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  text-align:center;
 }
 
 /* CONTAINER */
@@ -28,6 +31,7 @@ body{
   background:white;
   padding:25px;
   border:1px solid #c8e6c9;
+  border-radius:10px;
 }
 
 /* TITLE */
@@ -35,6 +39,15 @@ h2{
   text-align:center;
   color:#0b6623;
   margin-top:0;
+}
+
+/* Candidate Info */
+.candidate-info{
+  font-weight: normal;
+  color:#333;
+  margin-bottom:15px;
+  line-height:1.5;
+  text-align:center;
 }
 
 /* SUBJECT LIST */
@@ -71,6 +84,7 @@ button{
   font-size:16px;
   font-weight:bold;
   cursor:pointer;
+  border-radius:8px;
 }
 button:hover{
   background:#084d1a;
@@ -85,10 +99,18 @@ button:hover{
   Flexi CBT Simulator
 </div>
 
-<!-- SUBJECT SELECTION -->
+<!-- CONTAINER -->
 <div class="container">
-  <h2>Select Subjects</h2>
 
+  <h2>Candidate Information</h2>
+
+  <!-- Display Candidate Info -->
+  <div class="candidate-info" id="candidateInfo">
+    Loading your info...
+  </div>
+
+  <!-- SUBJECT SELECTION -->
+  <h2>Select Subjects</h2>
   <div class="counter" id="counter">1 / 4 selected</div>
 
   <!-- ENGLISH (LOCKED) -->
@@ -128,9 +150,11 @@ button:hover{
     <label>Economics</label>
   </div>
 
-<div class="subject">
-  <input type="checkbox" class="subjectBox" value="Commerce"><label>Commerce</label>
-</div>
+  <div class="subject">
+    <input type="checkbox" class="subjectBox" value="Commerce">
+    <label>Commerce</label>
+  </div>
+
   <div class="subject">
     <input type="checkbox" class="subjectBox" value="Government">
     <label>Government</label>
@@ -143,13 +167,32 @@ button:hover{
 
   <br>
   <button onclick="proceed()">Proceed to Instructions</button>
-</div>
 
+</div>
 <script>
+// 🔥 Kill browser back/forward cache
+window.addEventListener("pageshow", function (event) {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
+
+// === Fetch everything from Page 1 ===
+const candidateInfoDiv = document.getElementById("candidateInfo");
+
+const candidateName = localStorage.getItem("candidateName") || "";
+const candidateWA = localStorage.getItem("candidateWhatsApp") || "";
+
+candidateInfoDiv.innerHTML = `
+  Name: ${candidateName || "Not provided"}<br>
+  WhatsApp: ${candidateWA || "Not provided"}<br>
+`;
+
+// === Subject selection logic ===
 const boxes = document.querySelectorAll(".subjectBox");
 const counter = document.getElementById("counter");
+const proceedBtn = document.querySelector("button");
 
-// Map checkbox values to exact JSON keys
 const valueMap = {
   "Maths": "Mathematics",
   "Physics": "Physics",
@@ -162,14 +205,12 @@ const valueMap = {
   "Literature": "Literature_in_English"
 };
 
-// Update counter
 function updateCounter() {
   const checked = document.querySelectorAll(".subjectBox:checked").length;
-  const total = checked + 1; // English is compulsory
+  const total = checked + 1; // English compulsory
   counter.textContent = total + " / 4 selected";
 }
 
-// Limit to 3 additional subjects
 boxes.forEach(box => {
   box.addEventListener("change", () => {
     const checked = document.querySelectorAll(".subjectBox:checked").length;
@@ -182,17 +223,13 @@ boxes.forEach(box => {
   });
 });
 
-// Proceed button
+// ✅ SAFE proceed logic
 function proceed() {
-  const selected = ["English"]; // compulsory
+  const selected = ["English"];
 
   document.querySelectorAll(".subjectBox:checked").forEach(box => {
     const mapped = valueMap[box.value];
-    if (!mapped) {
-      console.error("Invalid subject selected:", box.value);
-    } else {
-      selected.push(mapped);
-    }
+    if (mapped) selected.push(mapped);
   });
 
   if (selected.length !== 4) {
@@ -200,16 +237,21 @@ function proceed() {
     return;
   }
 
-  console.log("Subjects saved to localStorage:", selected);
   localStorage.setItem("selectedSubjects", JSON.stringify(selected));
 
-  // Go to instructions page
-  window.location.href = "page3.html";
+  // cache-safe redirect
+  window.location.replace("page3.html?v=" + Date.now());
 }
 
-// initialize counter
+// ✅ Bind button properly (no inline onclick)
+document.addEventListener("DOMContentLoaded", () => {
+  proceedBtn.disabled = false;
+  proceedBtn.style.pointerEvents = "auto";
+  proceedBtn.addEventListener("click", proceed);
+});
+
+// Init
 updateCounter();
 </script>
-
 </body>
 </html>

@@ -19,6 +19,7 @@ body{
   padding:12px 18px;
   font-size:18px;
   font-weight:bold;
+  text-align:center;
 }
 
 /* CONTAINER */
@@ -28,6 +29,7 @@ body{
   background:white;
   padding:25px;
   border:1px solid #c8e6c9;
+  border-radius:10px;
 }
 
 /* TITLE */
@@ -35,6 +37,20 @@ h2{
   text-align:center;
   color:#0b6623;
   margin-top:0;
+}
+
+/* CANDIDATE INFO */
+.candidate-info{
+  text-align:left;
+  color:#000000;   /* Black color */
+  margin-bottom:20px;
+  line-height:1.4;
+  font-weight:bold; /* Bold */
+  font-size:14px;  /* Slightly smaller */
+  background:#f0f0f0;
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
 }
 
 /* INSTRUCTIONS */
@@ -69,6 +85,7 @@ button{
   font-size:16px;
   font-weight:bold;
   cursor:pointer;
+  border-radius:8px;
 }
 button:hover{
   background:#084d1a;
@@ -83,8 +100,14 @@ button:hover{
   Flexi CBT Simulator
 </div>
 
-<!-- INSTRUCTIONS -->
+<!-- CONTAINER -->
 <div class="container">
+
+  <!-- Candidate Info -->
+  <div class="candidate-info" id="candidateInfo">
+    Loading your info...
+  </div>
+
   <h2>Examination Instructions</h2>
 
   <ul>
@@ -104,8 +127,26 @@ button:hover{
   </div>
 
   <button onclick="startExam()">Start Examination</button>
+
 </div>
+
 <script>
+// === Fetch candidate info from Page1/2 ===
+const candidateInfoDiv = document.getElementById("candidateInfo");
+
+const candidateName = localStorage.getItem("candidateName") || "";
+const candidateWA = localStorage.getItem("candidateWhatsApp") || "";
+const candidateIP = localStorage.getItem("candidateIP") || "";
+const candidateFingerprint = localStorage.getItem("candidateFingerprint") || "";
+const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");
+
+// Display info in slightly smaller bold black box
+candidateInfoDiv.innerHTML = `
+  <strong>Name:</strong> ${candidateName || "Not provided"}<br>
+  <strong>WhatsApp:</strong> ${candidateWA || "Not provided"}<br>
+  <strong>Selected Subjects:</strong> ${selectedSubjects.length ? selectedSubjects.join(", ") : "None"}
+`;
+
 function startExam(){
   const agree = document.getElementById("agree").checked;
 
@@ -114,9 +155,10 @@ function startExam(){
     return;
   }
 
-  // Move to Exam UI
+  // Go to exam page
   window.location.href = "page4.html";
 }
 </script>
+
 </body>
 </html>

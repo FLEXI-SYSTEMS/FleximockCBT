@@ -111,11 +111,12 @@ const dotsInterval = setInterval(() => {
 
 // ===== READ LOCAL STORAGE =====
 const candidateName = localStorage.getItem("candidateName");
+const candidateWhatsApp = localStorage.getItem("candidateWhatsApp");
 const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");
 const answers = JSON.parse(localStorage.getItem("cbt_answers") || "{}");
 
 // Validate data
-if (!candidateName || selectedSubjects.length !== 4 || !answers) {
+if (!candidateName || !candidateWhatsApp || selectedSubjects.length !== 4 || !answers) {
   clearInterval(dotsInterval);
   message.innerHTML = "❌ Exam data missing. Please contact the invigilator.";
   message.style.color = "red";
@@ -136,7 +137,8 @@ async function submitExam() {
     await setDoc(doc(db, "cbtResults", `${candidateName}_${Date.now()}`), payload);
 
     clearInterval(dotsInterval);
-    message.innerHTML = "✅ Your exam has been submitted successfully!";
+    message.innerHTML = `✅ Dear <strong>${candidateName}</strong>, your exam has successfully been submitted.<br>WhatsApp:${candidateWhatsApp}<br><br>
+    kindly send <strong>UTMERESULT</strong>with this WhatsApp number to get your resuts.`;
     homeBtn.style.display = "inline-block";
 
     // Clean up
