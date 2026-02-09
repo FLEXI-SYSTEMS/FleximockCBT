@@ -1,146 +1,150 @@
-<!DOCTYPE html>  <html lang="en">  
-<head>  
-<meta charset="UTF-8">  
-<meta name="viewport" content="width=device-width, initial-scale=1.0">  
-<title>Flexi CBT – Candidate Login</title>  
-<style>  
-body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f4; }  
-.header { background:#0b6623; color:white; padding:15px 20px; font-size:20px; font-weight:bold; text-align:center; }  
-.center-box { max-width: 400px; margin: 80px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); text-align: center; }  
-input[type="text"], input[type="tel"] { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; font-size:16px; }  
-button { width: 95%; padding: 12px; border:none; border-radius: 8px; background: #0b6623; color:white; font-size:16px; font-weight:bold; cursor:pointer; }  
-button:hover { background:#084d1a; }  
-.message-box { display:none; padding: 20px; margin-top: 20px; background:#ffe6e6; color:#b30000; font-weight:bold; border-radius: 10px; }  
-</style>  
-</head>  
-<body>  <div class="header">Flexi CBT Login</div>  <div class="center-box" id="loginBox">  
-  <h2>Enter Your Details</h2>  
-  <input type="text" id="candidateNameInput" placeholder="Your full name">  
-  <input type="tel" id="candidateWAInput" placeholder="Your WhatsApp number">  
-  <button id="startExamBtn">Start Exam</button>  
-  <div class="message-box" id="messageBox"></div>  
-</div>  <script type="module">  
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";  
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";  
-  
-// ====== Firebase Config ======  
-const firebaseConfig = {  
-  apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",  
-  authDomain: "flexi-tutors.firebaseapp.com",  
-  projectId: "flexi-tutors",  
-  storageBucket: "flexi-tutors.firebasestorage.app",  
-  messagingSenderId: "320176672406",  
-  appId: "1:320176672406:web:90f19511241e51c6437cb7",  
-  measurementId: "G-Z9P1G4K0SY"  
-};  
-  
-const app = initializeApp(firebaseConfig);  
-const db = getFirestore(app);  
-  
-// ====== DOM Elements ======  
-const messageBox = document.getElementById("messageBox");  
-const startBtn = document.getElementById("startExamBtn");  
-const nameInput = document.getElementById("candidateNameInput");  
-const waInput = document.getElementById("candidateWAInput");  
-  
-// ====== Utilities ======  
-function formatName(name) {  
-  return name.trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");  
-}  
-  
-function getNigeriaNow() {  
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));  
-}  
-  
-const examStart = new Date("2026-02-01T18:00:00+01:00");  
-const examEnd   = new Date("2026-02-11T23:59:59+01:00");  
-  
-// ====== Countdown / Time Check ======  
-function updateExamTime() {  
-  const now = getNigeriaNow();  
-  if (now < examStart) {  
-    const diff = examStart - now;  
-    const hours = Math.floor(diff / 36e5);  
-    const minutes = Math.floor((diff % 36e5) / 6e4);  
-    const seconds = Math.floor((diff % 6e4) / 1000);  
-    messageBox.innerHTML = `⏳ Exam starts in <strong>${hours.toString().padStart(2,'0')}h : ${minutes.toString().padStart(2,'0')}m : ${seconds.toString().padStart(2,'0')}s</strong>`;  
-    messageBox.style.display = "block";  
-    startBtn.disabled = true;  
-    return false;  
-  }  
-  if (now > examEnd) {  
-    messageBox.innerHTML = "⛔ The exam has closed. You can no longer take the test.";  
-    messageBox.style.display = "block";  
-    startBtn.disabled = true;  
-    return false;  
-  }  
-  messageBox.style.display = "none";  
-  startBtn.disabled = false;  
-  return true;  
-}  
-setInterval(updateExamTime, 1000);  
-updateExamTime();  
-  
-// ====== Get IP ======  
-async function getUserIP() {  
-  try { const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); return data.ip; }  
-  catch (e) { return "unknown"; }  
-}  
-  
-// ====== Device Fingerprint ======  
-async function getDeviceFingerprint() {  
-  const raw = [  
-    navigator.userAgent, navigator.platform, navigator.language,  
-    screen.width + "x" + screen.height, screen.colorDepth,  
-    Intl.DateTimeFormat().resolvedOptions().timeZone,  
-    navigator.hardwareConcurrency || "na", navigator.maxTouchPoints || "na"  
-  ].join("||");  
-  const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));  
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");  
-}  
-  
-// ====== Check Firestore for previous attempts ======  
-async function hasTakenExam(name, ip, fingerprint) {  
-  const normalized = formatName(name);  
-  const snapshot = await getDocs(collection(db, "cbtResults"));  
-  for (let doc of snapshot.docs) {  
-    const data = doc.data();  
-    const dbName = data.name || "";  
-    const dbIP = data.ip || "";  
-    const dbFP = data.fingerprint || "";  
-    if (dbName.toLowerCase() === normalized.toLowerCase() || dbIP === ip || dbFP === fingerprint) {  
-      return true; // Block if any match  
-    }  
-  }  
-  return false;  
-}  
-  
-// ====== Start Exam Button ======  
-startBtn.addEventListener("click", async () => {  
-  const name = nameInput.value.trim();  
-  const wa = waInput.value.trim();  
-  if (!name) { messageBox.innerText = "⚠️ Enter full name."; messageBox.style.display="block"; return; }  
-  if (!wa) { messageBox.innerText = "⚠️ Enter WhatsApp number."; messageBox.style.display="block"; return; }  
-  if (!updateExamTime()) return;  
-  
-  const ip = await getUserIP();  
-  const fingerprint = await getDeviceFingerprint();  
-  const blocked = await hasTakenExam(name, ip, fingerprint);  
-  if (blocked) {  
-    messageBox.innerText = "⚠️ You have already taken the exam from this name, device, or network.";  
-    messageBox.style.display = "block";  
-    return;  
-  }  
-  
-  // Save locally for page4 submission  
-  localStorage.setItem("candidateName", formatName(name));  
-  localStorage.setItem("candidateWhatsApp", wa);  
-  localStorage.setItem("candidateIP", ip);  
-  localStorage.setItem("candidateFingerprint", fingerprint);  
-  
-  // Proceed  
-  window.location.href = "page2.html";  
-});  
-</script>  
-</body>  
-</html> 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flexi CBT – Candidate Login</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+body { font-family: sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; background:#f4f6f4; }
+.container { background:#fff; padding:30px; width:90%; max-width:400px; border-radius:12px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
+h2 { color:#0b6623; }
+input { width:100%; padding:12px; margin:15px 0; border-radius:8px; border:1px solid #ccc; box-sizing:border-box; }
+button { width:100%; padding:12px; background:#0b6623; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; }
+button:disabled { background:#ccc; }
+.status { margin-top:15px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Candidate Login</h2>
+  <p>Enter your WhatsApp number to validate your exam access</p>
+  <input type="tel" id="waInput" placeholder="WhatsApp number (e.g. 08062244119)">
+  <input type="text" id="candidateNameInput" placeholder="Your full name">
+  <button id="startExamBtn">Start Exam</button>
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+  // ===== FIREBASE CONFIG =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",
+    authDomain: "flexi-tutors.firebaseapp.com",
+    projectId: "flexi-tutors",
+    storageBucket: "flexi-tutors.firebasestorage.app",
+    messagingSenderId: "320176672406",
+    appId: "1:320176672406:web:90f19511241e51c6437cb7"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const waInput = document.getElementById("waInput");
+  const nameInput = document.getElementById("candidateNameInput");
+  const startBtn = document.getElementById("startExamBtn");
+  const status = document.getElementById("status");
+
+  function formatName(name) {
+    return name.trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  }
+
+  async function getUserIP() {
+    try { const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); return data.ip; }
+    catch(e) { return "unknown"; }
+  }
+
+  async function getDeviceFingerprint() {
+    const raw = [navigator.userAgent, screen.width+"x"+screen.height, screen.colorDepth].join("||");
+    const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+
+  const examStart = new Date("2026-02-01T18:00:00+01:00");
+  const examEnd   = new Date("2026-02-11T23:59:59+01:00");
+
+  function updateExamTime() {
+    const now = new Date(new Date().toLocaleString("en-US",{timeZone:"Africa/Lagos"}));
+    if(now < examStart) { startBtn.disabled=true; return false; }
+    if(now > examEnd) { status.style.color="#b30000"; status.textContent="⛔ Exam closed"; startBtn.disabled=true; return false; }
+    startBtn.disabled=false; return true;
+  }
+  setInterval(updateExamTime, 1000);
+
+  startBtn.addEventListener("click", async()=>{
+    const wa = waInput.value.trim();
+    const name = nameInput.value.trim();
+    if(!wa || !name){ status.style.color="#b30000"; status.textContent="⚠️ Fill all fields"; return; }
+
+    startBtn.disabled = true;
+    status.style.color = "#0b6623";
+    status.textContent = "⏳ Validating... please wait";
+
+    try {
+      // 1. Get the document using the WhatsApp number
+      const subRef = db.collection("subscriptions").doc(wa);
+      const subSnap = await subRef.get();
+
+      if(!subSnap.exists){
+        status.style.color="#b30000";
+        status.textContent="❌ This number is not registered";
+        startBtn.disabled=false;
+        return;
+      }
+
+      const subData = subSnap.data();
+
+      // 2. CHECK "USED" STATUS (The blocking logic you requested)
+      // This explicitly checks the 'used' field from your screenshot
+      if (subData.used === true || String(subData.used).toLowerCase() === "true") {
+        status.style.color="#b30000";
+        status.textContent="❌ The PIN linked to this WhatsApp number has been used";
+        startBtn.disabled = false;
+        return; // STOP HERE
+      }
+
+      // 3. Check Payment
+      if(!subData.paid){
+        status.style.color="#b30000";
+        status.textContent="❌ Payment verification required";
+        startBtn.disabled=false;
+        return;
+      }
+
+      // 4. Update the 'used' status in DB immediately
+      await subRef.update({ 
+        used: true, 
+        usedAt: firebase.firestore.FieldValue.serverTimestamp() 
+      });
+
+      // 5. Save the attempt with the PIN found in the document
+      const ip = await getUserIP();
+      const fingerprint = await getDeviceFingerprint();
+      const candidatePIN = subData.pin || "NO_PIN"; // Automatically gets the PIN from DB
+
+      await db.collection("cbtResults").add({
+        name: formatName(name),
+        whatsapp: wa,
+        pin: candidatePIN,
+        ip: ip,
+        fingerprint: fingerprint,
+        startedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Local storage for the exam page
+      localStorage.setItem("candidateName", formatName(name));
+      localStorage.setItem("candidateWhatsApp", wa);
+
+      status.textContent = "✅ Access granted! Redirecting...";
+      setTimeout(() => { window.location.href="cbt_exam.html"; }, 1500);
+
+    } catch(err) {
+      console.error(err);
+      status.style.color="#b30000";
+      status.textContent="❌ Error. Check your connection.";
+      startBtn.disabled=false;
+    }
+  });
+</script>
+</body>
+</html>
