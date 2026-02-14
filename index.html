@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
     status.textContent = "";
     return true;
   }
+// ... (Keep your Firebase config and DOM elements as they are)
 
   // ===== START EXAM =====
   startBtn.addEventListener("click", async ()=>{
@@ -123,8 +124,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // 3️⃣ Mark subscription as used
-      await subRef.update({ used: true, usedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      // 3️⃣ Mark subscription as used (UPDATED WITH SECRET KEY)
+      await subRef.update({ 
+        used: true, 
+        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        access_key: "FLEXI_CBT_SECURE_2026" // Matches your security rules
+      });
 
       // 4️⃣ Save locally for exam page
       localStorage.setItem("candidateName", formatName(name));
@@ -132,15 +137,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       status.style.color="#0b6623";
       status.textContent="✅ Access granted! Redirecting...";
-      setTimeout(()=>window.location.href="page2.html",1500);
+      setTimeout(()=>window.location.href="page2.html", 1500);
 
     } catch(err){
       console.error(err);
       status.style.color="#b30000";
-      status.textContent="❌ Error. Check your connection.";
+      // If the password doesn't match the rules, it hits this error block
+      status.textContent="❌ Access Denied. Contact Admin.";
       startBtn.disabled=false;
     }
   });
-
-});
-</script>
+  </script>
+</body>
+</html>
