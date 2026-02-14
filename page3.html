@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flexi CBT – Exam Instructions</title>
-
 <style>
 body{
   margin:0;
@@ -42,11 +41,11 @@ h2{
 /* CANDIDATE INFO */
 .candidate-info{
   text-align:left;
-  color:#000000;   /* Black color */
+  color:#000000;
   margin-bottom:20px;
   line-height:1.4;
-  font-weight:bold; /* Bold */
-  font-size:14px;  /* Slightly smaller */
+  font-weight:bold;
+  font-size:14px;
   background:#f0f0f0;
   padding:10px;
   border-radius:6px;
@@ -87,20 +86,21 @@ button{
   cursor:pointer;
   border-radius:8px;
 }
-button:hover{
+button:disabled{
+  background:#8fbc8f;
+  cursor:not-allowed;
+}
+button:hover:enabled{
   background:#084d1a;
 }
 </style>
 </head>
-
 <body>
 
-<!-- HEADER -->
 <div class="header">
   Flexi CBT Simulator
 </div>
 
-<!-- CONTAINER -->
 <div class="container">
 
   <!-- Candidate Info -->
@@ -126,38 +126,42 @@ button:hover{
     <label for="agree">I have read and understood the instructions</label>
   </div>
 
-  <button onclick="startExam()">Start Examination</button>
+  <button id="startBtn" disabled>Start Examination</button>
 
 </div>
 
 <script>
 // === Fetch candidate info from Page1/2 ===
 const candidateInfoDiv = document.getElementById("candidateInfo");
+const startBtn = document.getElementById("startBtn");
+const agreeCheck = document.getElementById("agree");
 
 const candidateName = localStorage.getItem("candidateName") || "";
 const candidateWA = localStorage.getItem("candidateWhatsApp") || "";
-const candidateIP = localStorage.getItem("candidateIP") || "";
-const candidateFingerprint = localStorage.getItem("candidateFingerprint") || "";
 const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");
 
-// Display info in slightly smaller bold black box
+// Prevent skipping page 3
+if(!candidateName || !candidateWA || selectedSubjects.length !== 4){
+  alert("Session expired or invalid. Please start from login.");
+  window.location.href = "page1.html";
+}
+
+// Display candidate info
 candidateInfoDiv.innerHTML = `
-  <strong>Name:</strong> ${candidateName || "Not provided"}<br>
-  <strong>WhatsApp:</strong> ${candidateWA || "Not provided"}<br>
-  <strong>Selected Subjects:</strong> ${selectedSubjects.length ? selectedSubjects.join(", ") : "None"}
+  <strong>Name:</strong> ${candidateName}<br>
+  <strong>WhatsApp:</strong> ${candidateWA}<br>
+  <strong>Selected Subjects:</strong> ${selectedSubjects.join(", ")}
 `;
 
-function startExam(){
-  const agree = document.getElementById("agree").checked;
+// Enable start button only after checkbox
+agreeCheck.addEventListener("change", () => {
+  startBtn.disabled = !agreeCheck.checked;
+});
 
-  if(!agree){
-    alert("You must agree to the instructions before starting the exam.");
-    return;
-  }
-
-  // Go to exam page
+// Start exam
+startBtn.addEventListener("click", () => {
   window.location.href = "page4.html";
-}
+});
 </script>
 
 </body>

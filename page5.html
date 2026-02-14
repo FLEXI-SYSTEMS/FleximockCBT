@@ -3,171 +3,137 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flexi CBT – Submission Complete</title>
-
+<title>Exam Submission Status</title>
 <style>
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f4f6f4;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  margin: 0;
-}
+  body{
+    margin:0; font-family:Arial,sans-serif; background:#f0f2f5;
+  }
+  .container{
+    display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column;
+  }
+  .card{
+    background:#fff; padding:30px 40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.2); text-align:center; max-width:400px; width:90%;
+  }
+  .status-title{ font-size:20px; margin-bottom:10px; }
+  .status-title.success{ color:green; font-weight:bold; }
+  .status-title.failure{ color:red; font-weight:bold; }
+  .status-msg{ font-size:16px; margin-bottom:20px; }
+  .status-msg b{ font-weight:bold; }
+  .buttons{ display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .btn{
+    padding:10px 15px; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:bold; text-decoration:none; color:#fff;
+    background-color:green; transition:0.2s;
+  }
+  .btn:hover{ background-color:#006400; }
+  .spinner{
+    border:4px solid #f3f3f3; border-top:4px solid green; border-radius:50%; width:30px; height:30px; animation:spin 1s linear infinite; margin:0 auto 20px;
+  }
+  @keyframes spin{ 0%{transform:rotate(0deg);}100%{transform:rotate(360deg);} }
 
-.container {
-  background: white;
-  padding: 35px 40px;
-  border-radius: 15px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-  text-align: center;
-  max-width: 420px;
-}
+  /* AI floating button */
+  .ai-btn{
+    position:fixed; bottom:60px; right:20px; width:60px; height:60px; background:green; border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    z-index:1000; display:none;
+  }
+  .ai-btn img{ width:40px; height:40px; border-radius:50%; }
 
-h1 {
-  color: #0b6623;
-  margin-bottom: 15px;
-}
-
-p {
-  font-size: 16px;
-  margin-bottom: 25px;
-  line-height: 1.5;
-}
-
-button {
-  padding: 12px 25px;
-  border: none;
-  border-radius: 12px;
-  background-color: #0b6623;
-  color: white;
-  font-weight: bold;
-  font-size: 16px;
-  cursor: pointer;
-  display: none; /* hidden initially */
-}
-
-button:hover {
-  background-color: #084d1a;
-}
-
-/* Spinner */
-.spinner {
-  display: inline-block;
-  width: 25px;
-  height: 25px;
-  border: 4px solid #ccc;
-  border-top-color: #0b6623;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  vertical-align: middle;
-  margin-right: 10px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+  .ai-tooltip{
+    position:fixed; bottom:130px; right:80px; background:green; color:#fff; padding:10px 15px; border-radius:6px; font-size:14px; font-weight:bold; display:none; box-shadow:0 2px 6px rgba(0,0,0,0.3); max-width:200px;
+    word-wrap: break-word;
+  }
 </style>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
-
 <div class="container">
-  <h1>Exam Submission</h1>
-  <p id="message"><span class="spinner"></span>Submitting your exam<span id="dots"></span></p>
-  <button id="homeBtn">Back to Home</button>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <div class="status-title" id="statusTitle"></div>
+    <div class="status-msg" id="statusMsg"></div>
+    <div class="buttons">
+      <a href="#" class="btn" id="homeBtn">Back to Home</a>
+      <a href="#" class="btn" id="contactBtn">Contact via WhatsApp</a>
+    </div>
+  </div>
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+<div class="ai-tooltip" id="aiTooltip">Your 24/7 StarHub Tutors support is available here!</div>
+<div class="ai-btn" id="aiBtn">
+  <img src="https://i.postimg.cc/QtKwNXXM/Background-Eraser-20260213-145038242.png" alt="AI Bot">
+</div>
 
-// ===== FIREBASE CONFIG =====
-const firebaseConfig = {
-  apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",
-  authDomain: "flexi-tutors.firebaseapp.com",
-  projectId: "flexi-tutors",
-  storageBucket: "flexi-tutors.firebasestorage.app",
-  messagingSenderId: "320176672406",
-  appId: "1:320176672406:web:90f19511241e51c6437cb7",
-  measurementId: "G-Z9P1G4K0SY"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ===== ELEMENTS =====
-const message = document.getElementById("message");
-const homeBtn = document.getElementById("homeBtn");
-const dotsEl = document.getElementById("dots");
-
-// ===== DOTS ANIMATION =====
-let dots = 0;
-const dotsInterval = setInterval(() => {
-  dots = (dots + 1) % 4;
-  dotsEl.textContent = '.'.repeat(dots);
-}, 500);
-
-// ===== READ LOCAL STORAGE =====
-const candidateName = localStorage.getItem("candidateName");
-const candidateWhatsApp = localStorage.getItem("candidateWhatsApp");
-const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");
-const answers = JSON.parse(localStorage.getItem("cbt_answers") || "{}");
-
-// Validate data
-if (!candidateName || !candidateWhatsApp || selectedSubjects.length !== 4 || !answers) {
-  clearInterval(dotsInterval);
-  message.innerHTML = "❌ Exam data missing. Please contact the invigilator.";
-  message.style.color = "red";
-  homeBtn.style.display = "inline-block";
-  throw new Error("Missing exam data in localStorage");
-}
-
-// ===== SUBMIT TO FIRESTORE =====
-async function submitExam() {
-  const payload = {
-    name: candidateName,
-    subjects: selectedSubjects,
-    answers,
-    submittedAt: serverTimestamp()
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const firebaseConfig = {
+    apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",
+    authDomain: "flexi-tutors.firebaseapp.com",
+    projectId: "flexi-tutors",
+    storageBucket: "flexi-tutors.appspot.com",
+    messagingSenderId: "320176672406",
+    appId: "1:320176672406:web:90f19511241e51c6437cb7"
   };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-  try {
-    await setDoc(doc(db, "cbtResults", `${candidateName}_${Date.now()}`), payload);
+  const spinner = document.getElementById("spinner");
+  const statusTitle = document.getElementById("statusTitle");
+  const statusMsg = document.getElementById("statusMsg");
+  const homeBtn = document.getElementById("homeBtn");
+  const contactBtn = document.getElementById("contactBtn");
+  const aiBtn = document.getElementById("aiBtn");
+  const aiTooltip = document.getElementById("aiTooltip");
 
-    clearInterval(dotsInterval);
-    message.innerHTML = `✅ Dear <strong>${candidateName}</strong>, your exam has successfully been submitted.<br>WhatsApp:${candidateWhatsApp}<br><br>
-    kindly send <strong>UTMERESULT</strong>with this WhatsApp number to get your resuts.`;
-    homeBtn.style.display = "inline-block";
+  const candidateName = localStorage.getItem("candidateName") || "Candidate";
+  const fingerprint = localStorage.getItem("candidateFingerprint");
 
-    // Clean up
-    [
-      "cbt_answers",
-      "cbt_currentSubject",
-      "cbt_qIndex",
-      "selectedSubjects",
-      "cbt_submitted"
-    ].forEach(k => localStorage.removeItem(k));
+  homeBtn.style.display="none";
+  contactBtn.style.display="none";
+  aiBtn.style.display="none";
 
-    localStorage.setItem("cbt_submitted", "true");
-
-  } catch (err) {
-    clearInterval(dotsInterval);
-    console.error(err);
-    message.innerHTML = "❌ Submission failed. Please check your internet connection or contact the invigilator.";
-    homeBtn.style.display = "inline-block";
+  function showTooltip(duration=10000){
+    aiTooltip.style.display="block";
+    setTimeout(()=>{ aiTooltip.style.display="none"; },duration);
   }
-}
 
-// ===== HOME BUTTON =====
-homeBtn.onclick = () => {
-  window.location.href = "https://flexi-systems.github.io/Flexi-Tutors/";
-};
+  function checkSubmission(){
+    spinner.style.display="block";
+    db.collection("cbtResults").where("fingerprint","==",fingerprint).get()
+    .then(snapshot=>{
+      spinner.style.display="none";
+      if(!snapshot.empty){
+        statusTitle.textContent = "✅ Your exam has been submitted successfully!";
+        statusTitle.className="status-title success";
+        statusMsg.innerHTML = `Candidate: <b>${candidateName}</b>`;
+        homeBtn.style.display="inline-block";
+        homeBtn.href = "https://flexi-systems.github.io/Flexi-Tutors/";
+      } else {
+        statusTitle.textContent="❌ Exam submission failed!";
+        statusTitle.className="status-title failure";
+        statusMsg.innerHTML=`Dear <b>${candidateName}</b>, your result was not successfully submitted. Kindly contact the invigilator.`;
+        contactBtn.style.display="inline-block";
+        aiBtn.style.display="flex";
+        contactBtn.href = `https://wa.me/2349079867370?text=${encodeURIComponent("Hello, I am "+candidateName+". My exam submission failed. Please assist.")}`;
+        contactBtn.target = "_blank"; // <-- WhatsApp opens in new tab
+        showTooltip();
+      }
+    }).catch(err=>{
+      spinner.style.display="none";
+      statusTitle.textContent="❌ Error checking submission!";
+      statusTitle.className="status-title failure";
+      statusMsg.innerHTML=`Dear <b>${candidateName}</b>, we could not verify your result. Kindly contact the invigilator.`;
+      contactBtn.style.display="inline-block";
+      aiBtn.style.display="flex";
+      contactBtn.href = `https://wa.me/2347051768946?text=${encodeURIComponent("Hello, I am "+candidateName+". My exam submission failed. Please assist.")}`;
+      contactBtn.target = "_blank";
+      showTooltip();
+    });
+  }
 
-// Trigger submission immediately
-submitExam();
+  aiBtn.onclick = ()=>{ showTooltip(); window.location.href="supportBot.html"; }
+
+  checkSubmission();
+});
 </script>
-
 </body>
 </html>

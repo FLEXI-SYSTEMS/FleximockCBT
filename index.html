@@ -26,8 +26,9 @@ button:disabled { background:#ccc; }
   <button id="startExamBtn">Start Exam</button>
   <div class="status" id="status"></div>
 </div>
-
 <script>
+document.addEventListener("DOMContentLoaded", () => {
+
   // ===== FIREBASE CONFIG =====
   const firebaseConfig = {
     apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",
@@ -40,111 +41,106 @@ button:disabled { background:#ccc; }
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
+  // ===== DOM ELEMENTS =====
   const waInput = document.getElementById("waInput");
   const nameInput = document.getElementById("candidateNameInput");
   const startBtn = document.getElementById("startExamBtn");
   const status = document.getElementById("status");
 
-  function formatName(name) {
-    return name.trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  function formatName(name){
+    return name.trim().split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
   }
 
-  async function getUserIP() {
-    try { const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); return data.ip; }
-    catch(e) { return "unknown"; }
-  }
-
-  async function getDeviceFingerprint() {
-    const raw = [navigator.userAgent, screen.width+"x"+screen.height, screen.colorDepth].join("||");
-    const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");
-  }
-
-  const examStart = new Date("2026-02-01T18:00:00+01:00");
-  const examEnd   = new Date("2026-02-11T23:59:59+01:00");
-
-  function updateExamTime() {
+  // ===== CHECK EXAM TIME =====
+  async function checkExamTime(){
+    const configDoc = await db.collection("settings").doc("examConfig").get();
+    if(!configDoc.exists){
+      status.style.color="#b30000";
+      status.textContent = "⚠️ Exam not configured by admin.";
+      return false;
+    }
     const now = new Date(new Date().toLocaleString("en-US",{timeZone:"Africa/Lagos"}));
-    if(now < examStart) { startBtn.disabled=true; return false; }
-    if(now > examEnd) { status.style.color="#b30000"; status.textContent="⛔ Exam closed"; startBtn.disabled=true; return false; }
-    startBtn.disabled=false; return true;
-  }
-  setInterval(updateExamTime, 1000);
+    const start = new Date(configDoc.data().startTime);
+    const end = new Date(configDoc.data().endTime);
 
-  startBtn.addEventListener("click", async()=>{
+    if(now < start){
+      status.style.color="#0b6623";
+      status.textContent = "⏳ Exam has not started yet.";
+      return false;
+    }
+    if(now > end){
+      status.style.color="#b30000";
+      status.textContent = "⛔ Exam closed.";
+      return false;
+    }
+    status.textContent = "";
+    return true;
+  }
+
+  // ===== START EXAM =====
+  startBtn.addEventListener("click", async ()=>{
     const wa = waInput.value.trim();
     const name = nameInput.value.trim();
-    if(!wa || !name){ status.style.color="#b30000"; status.textContent="⚠️ Fill all fields"; return; }
+    if(!wa || !name){ 
+      status.style.color="#b30000";
+      status.textContent="⚠️ Fill all fields"; 
+      return; 
+    }
 
     startBtn.disabled = true;
-    status.style.color = "#0b6623";
-    status.textContent = "⏳ Validating... please wait";
+    status.style.color="#0b6623";
+    status.textContent = "⏳ Validating...";
 
-    try {
-      // 1. Get the document using the WhatsApp number
+    try{
+      // 1️⃣ Check exam time
+      const allowed = await checkExamTime();
+      if(!allowed){ startBtn.disabled=false; return; }
+
+      // 2️⃣ Check subscription by WhatsApp number
       const subRef = db.collection("subscriptions").doc(wa);
       const subSnap = await subRef.get();
 
       if(!subSnap.exists){
         status.style.color="#b30000";
-        status.textContent="❌ This number is not registered";
+        status.textContent="❌ Number not registered";
         startBtn.disabled=false;
         return;
       }
 
       const subData = subSnap.data();
 
-      // 2. CHECK "USED" STATUS (The blocking logic you requested)
-      // This explicitly checks the 'used' field from your screenshot
-      if (subData.used === true || String(subData.used).toLowerCase() === "true") {
+      if(subData.paid !== true){
         status.style.color="#b30000";
-        status.textContent="❌ The PIN linked to this WhatsApp number has been used";
-        startBtn.disabled = false;
-        return; // STOP HERE
-      }
-
-      // 3. Check Payment
-      if(!subData.paid){
-        status.style.color="#b30000";
-        status.textContent="❌ Payment verification required";
+        status.textContent="❌ Payment not confirmed";
         startBtn.disabled=false;
         return;
       }
 
-      // 4. Update the 'used' status in DB immediately
-      await subRef.update({ 
-        used: true, 
-        usedAt: firebase.firestore.FieldValue.serverTimestamp() 
-      });
+      if(subData.used === true){
+        status.style.color="#b30000";
+        status.textContent="❌ The PIN linked to this number has been used";
+        startBtn.disabled=false;
+        return;
+      }
 
-      // 5. Save the attempt with the PIN found in the document
-      const ip = await getUserIP();
-      const fingerprint = await getDeviceFingerprint();
-      const candidatePIN = subData.pin || "NO_PIN"; // Automatically gets the PIN from DB
+      // 3️⃣ Mark subscription as used
+      await subRef.update({ used: true, usedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-      await db.collection("cbtResults").add({
-        name: formatName(name),
-        whatsapp: wa,
-        pin: candidatePIN,
-        ip: ip,
-        fingerprint: fingerprint,
-        startedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-
-      // Local storage for the exam page
+      // 4️⃣ Save locally for exam page
       localStorage.setItem("candidateName", formatName(name));
       localStorage.setItem("candidateWhatsApp", wa);
 
-      status.textContent = "✅ Access granted! Redirecting...";
-      setTimeout(() => { window.location.href="page2.html"; }, 1500);
+      status.style.color="#0b6623";
+      status.textContent="✅ Access granted! Redirecting...";
+      setTimeout(()=>window.location.href="page2.html",1500);
 
-    } catch(err) {
+    } catch(err){
       console.error(err);
       status.style.color="#b30000";
       status.textContent="❌ Error. Check your connection.";
       startBtn.disabled=false;
     }
   });
+
+});
 </script>
-</body>
-</html>
