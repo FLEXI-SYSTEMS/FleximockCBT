@@ -372,241 +372,175 @@ Literature_in_English: [ {"question": "The main purpose of drama is to", "option
 "options": { "A": "Change in taste","B": "Change in income","C": "Movement along an indifference curve","D": "Change in marginal rate of substitution"},"answer": "B"}, {"question": "Consumer equilibrium in indifference curve analysis is attained at the point where","options": {"A": "the highest indifference curve touches the budget line","B": "two indifference curves intersect","C": "the budget line is horizontal","D": "marginal utility is zero"},"answer": "A"}]
 };
 </script>
-<script>  
-document.addEventListener("DOMContentLoaded", () => {  
-  
-  /******** FIREBASE CONFIG ********/  
-  const firebaseConfig = {  
-    apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",  
-    authDomain: "flexi-tutors.firebaseapp.com",  
-    projectId: "flexi-tutors",  
-  };  
-  firebase.initializeApp(firebaseConfig);  
-  const db = firebase.firestore();  
-  
-  /******** SESSION CHECK ********/  
-  const candidateName = localStorage.getItem("candidateName");  
-  const candidateWhatsApp = localStorage.getItem("candidateWhatsApp");  
-  const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");  
-  const fingerprint = localStorage.getItem("candidateFingerprint");  
-  
-  if (!candidateName || !candidateWhatsApp || selectedSubjects.length === 0 || !fingerprint) {  
-    alert("Session expired. Please start again.");  
-    location.href = "page1.html";  
-  }  
-  
-  document.getElementById("candName").textContent = `${candidateName} | WhatsApp: ${candidateWhatsApp}`;  
-  
-  /******** TIMER ********/  
-  let totalSeconds = 0, endTime;  
-  const timerDiv = document.getElementById("timeText");  
-  const timerBarDiv = document.getElementById("timerBar");  
-  
-  db.collection("settings").doc("examConfig").get().then(doc => {  
-    if (!doc.exists) { alert("Exam duration not set by admin"); return; }  
-    totalSeconds = (doc.data().durationMinutes || 120) * 60;  
-  
-    // Check if candidate session exists  
-    db.collection("cbtSessions").doc(fingerprint).get().then(snap => {  
-      if (snap.exists && snap.data().endTime) {  
-        endTime = snap.data().endTime.toMillis ? snap.data().endTime.toMillis() : snap.data().endTime;  
-      } else {  
-        endTime = Date.now() + totalSeconds * 1000;  
-        db.collection("cbtSessions").doc(fingerprint).set({  
-          candidateName,  
-          candidateWhatsApp,  
-          fingerprint,  
-          endTime,  
-          startedAt: firebase.firestore.FieldValue.serverTimestamp()  
-        }, { merge: true });  
-      }  
-      startTimer();  
-    });  
-  });  
-  
-  function startTimer() {  
-    const interval = setInterval(() => {  
-      const left = Math.max(0, Math.floor((endTime - Date.now()) / 1000));  
-      const m = Math.floor(left / 60);  
-      const s = left % 60;  
-      timerDiv.textContent = `00:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;  
-      timerBarDiv.style.width = (left / totalSeconds * 100) + "%";  
-  
-      if (left <= 0) {  
-        clearInterval(interval);  
-        submit("timeout");  
-      }  
-    }, 500);  
-  }  
-  
-  /******** FILTER EXAM DATA ********/  
-  const filteredExamData = {};  
-  selectedSubjects.forEach(subject => {  
-    if (examData[subject]) filteredExamData[subject] = shuffle([...examData[subject]]);  
-  });  
-  const subjects = Object.keys(filteredExamData);  
-  let currentSubject = subjects[0], qIndex = 0;  
-  
-  /******** ANSWERS ********/  
-  let answers = {};  
-  subjects.forEach(s => answers[s] = Array(filteredExamData[s].length).fill(null));  
-  const cached = localStorage.getItem("answers");  
-  if (cached) answers = JSON.parse(cached);  
-  
-  /******** SUBJECT TABS ********/  
-  const tabs = document.getElementById("subjectTabs");  
-  subjects.forEach(s => {  
-    const t = document.createElement("div");  
-    t.className = "subject-tab";  
-    t.textContent = s;  
-    t.onclick = () => { currentSubject = s; qIndex = 0; render(); };  
-    tabs.appendChild(t);  
-  });  
-  if (tabs.firstChild) tabs.firstChild.classList.add("active");  
-  
-  /******** RENDER FUNCTION ********/  
-  function render() {  
-    const questionTextDiv = document.getElementById("questionText");  
-    const optionsDiv = document.getElementById("options");  
-    const qnumsDiv = document.getElementById("qnums");  
-    if (!questionTextDiv || !optionsDiv || !qnumsDiv) return;  
-  
-    document.querySelectorAll(".subject-tab").forEach(t => t.classList.remove("active"));  
-    [...tabs.children].find(t => t.textContent === currentSubject).classList.add("active");  
-  
-    const q = filteredExamData[currentSubject][qIndex];  
-    questionTextDiv.textContent = `${qIndex + 1}. ${q.question}`;  
-  
-    optionsDiv.innerHTML = "";  
-    Object.keys(q.options).forEach(k => {  
-      const div = document.createElement("div");  
-      div.className = "option-circle";  
-      div.textContent = q.options[k];  
-      if (answers[currentSubject][qIndex] === k) div.classList.add("selected");  
-      div.onclick = () => {  
-        answers[currentSubject][qIndex] = k;  
-        localStorage.setItem("answers", JSON.stringify(answers));  
-        render();  
-      };  
-      optionsDiv.appendChild(div);  
-    });  
-  
-    qnumsDiv.innerHTML = "";  
-    filteredExamData[currentSubject].forEach((_, i) => {  
-      const d = document.createElement("div");  
-      d.className = "qnum " + (answers[currentSubject][i] ? "green" : "red");  
-      if (i === qIndex) d.classList.add("current");  
-      d.textContent = i + 1;  
-      d.onclick = () => { qIndex = i; render(); };  
-      qnumsDiv.appendChild(d);  
-    });  
-  }  
-  
-  /******** NAVIGATION ********/  
-  document.getElementById("prevBtn").onclick = () => { if (qIndex > 0) { qIndex--; render(); } };  
-  document.getElementById("nextBtn").onclick = () => {  
-    if (qIndex < filteredExamData[currentSubject].length - 1) { qIndex++; render(); }  
-    else {  
-      const nextSubIndex = subjects.indexOf(currentSubject) + 1;  
-      if (nextSubIndex < subjects.length) { currentSubject = subjects[nextSubIndex]; qIndex = 0; render(); }  
-    }  
-  };  
-  
-  /******** SUBMIT ********/  
-  let examSubmitted = false;  
-  function submit(reason) {  
-    if (examSubmitted) return;  
-    examSubmitted = true;  
-  
-    let totalRaw = 0;  
-    subjects.forEach(s => {  
-      filteredExamData[s].forEach((q, i) => {  
-        const user = answers[s][i];  
-        if (user === q.answer) totalRaw++;  
-        else if (user && user !== q.answer) totalRaw -= 0.25;  
-      });  
-    });  
-  
-    const totalQuestions = Object.values(filteredExamData).reduce((acc, arr) => acc + arr.length, 0);  
-    const jambScore = Math.round((totalRaw / totalQuestions) * 400);  
-  
-    db.collection("cbtResults").add({  
-      candidateName, candidateWhatsApp, fingerprint, subjects, answers,  
-      rawScore: totalRaw, jambScore, reason,  
-      submittedAt: firebase.firestore.FieldValue.serverTimestamp()  
-    }).then(() => {  
-      localStorage.removeItem("answers");  
-      location.href = "page5.html";  
-    }).catch(err => {  
-      console.error("Submission error:", err);  
-      location.href = "page5.html?error=1";  
-    });  
-  }  
-  
-  document.getElementById("submitBtn").onclick = () => { submit("manual"); };  
-  
-  /******** ANTI-CHEAT ********/  
-  document.addEventListener("visibilitychange", () => { if (document.hidden) submit("app_switch"); });  
-  window.addEventListener("blur", () => { submit("window_blur"); });  
-  
-  /******** CALCULATOR & TTS ********/  
-  // ...keep your existing calculator and TTS logic here...  
-  
-/******** TEXT TO SPEECH ********/  
-volumeBtn.onclick = ()=>{  
-  const q = filteredExamData[currentSubject][qIndex];  
-  const opts = optionOrder[currentSubject][qIndex]  
-    .map((k,i)=>`Option ${i+1}: ${q.options[k]}`)  
-    .join(". ");  
-  
-  if("speechSynthesis" in window){  
-    const u = new SpeechSynthesisUtterance(  
-      `Question ${qIndex+1}. ${q.question}. ${opts}`  
-    );  
-    u.lang="en-US";  
-    speechSynthesis.speak(u);  
-  } else alert("TTS not supported");  
-};  
-  
-/******** CALCULATOR ********/  
-openCalcBtn.onclick = ()=> calcModal.style.display="flex";  
-document.querySelector(".close-calc").onclick =  
-  ()=> calcModal.style.display="none";  
-  
-document.querySelectorAll(".calc-keys button")  
-.forEach(b=>{  
-  b.onclick=()=>{  
-    let v=b.textContent;  
-    if(v==="="){  
-      try{  
-        let e=calcScreen.value  
-          .replace(/÷/g,"/")  
-          .replace(/×/g,"*");  
-        calcScreen.value =  
-          Function("return "+e)();  
-      }catch{  
-        calcScreen.value="Error";  
-      }  
-    } else if(v==="DEL")  
-      calcScreen.value =  
-        calcScreen.value.slice(0,-1);  
-    else if(v==="C")  
-      calcScreen.value="";  
-    else{  
-      if(calcScreen.value==="Error")  
-        calcScreen.value="";  
-      calcScreen.value+=v;  
-    }  
-  };  
-});  
-  
-  
-  /******** SHUFFLE ********/  
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }  
-  
-  /******** INIT ********/  
-  render();  
-});  
-</script>
+  <script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  /******** FIREBASE CONFIG ********/
+  const firebaseConfig = {
+    apiKey: "AIzaSyCPumFid5YNTWug52q2VDtSDQTLU9REgss",
+    authDomain: "flexi-tutors.firebaseapp.com",
+    projectId: "flexi-tutors",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  /******** SESSION CHECK ********/
+  const candidateName = localStorage.getItem("candidateName");
+  const candidateWhatsApp = localStorage.getItem("candidateWhatsApp");
+  const selectedSubjects = JSON.parse(localStorage.getItem("selectedSubjects") || "[]");
+  const fingerprint = localStorage.getItem("candidateFingerprint");
+
+  if (!candidateName || !candidateWhatsApp || selectedSubjects.length === 0 || !fingerprint) {
+    alert("Session expired. Please start again.");
+    location.href = "page1.html";
+  }
+
+  document.getElementById("candName").textContent = `${candidateName} | WhatsApp: ${candidateWhatsApp}`;
+
+  /******** TIMER USING durationMinutes ONLY ********/
+  const timerDiv = document.getElementById("timeText");
+  const timerBarDiv = document.getElementById("timerBar");
+
+  db.collection("settings").doc("examConfig").get().then(doc => {
+    if (!doc.exists) { alert("Exam duration not set by admin"); return; }
+    const durationMinutes = doc.data().durationMinutes || 120;
+    const totalSeconds = durationMinutes * 60;
+    const endTime = Date.now() + totalSeconds * 1000;
+
+    startTimer(endTime, totalSeconds);
+  });
+
+  function startTimer(endTime, totalSeconds) {
+    const interval = setInterval(() => {
+      const left = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      const m = Math.floor(left / 60);
+      const s = left % 60;
+      timerDiv.textContent = `00:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      timerBarDiv.style.width = (left / totalSeconds * 100) + "%";
+
+      if (left <= 0) {
+        clearInterval(interval);
+        submit("timeout");
+      }
+    }, 500);
+  }
+
+  /******** FILTER EXAM DATA ********/
+  const filteredExamData = {};
+  selectedSubjects.forEach(subject => {
+    if (examData[subject]) filteredExamData[subject] = shuffle([...examData[subject]]);
+  });
+  const subjects = Object.keys(filteredExamData);
+  let currentSubject = subjects[0], qIndex = 0;
+
+  /******** ANSWERS ********/
+  let answers = {};
+  subjects.forEach(s => answers[s] = Array(filteredExamData[s].length).fill(null));
+  const cached = localStorage.getItem("answers");
+  if (cached) answers = JSON.parse(cached);
+
+  /******** SUBJECT TABS ********/
+  const tabs = document.getElementById("subjectTabs");
+  subjects.forEach(s => {
+    const t = document.createElement("div");
+    t.className = "subject-tab";
+    t.textContent = s;
+    t.onclick = () => { currentSubject = s; qIndex = 0; render(); };
+    tabs.appendChild(t);
+  });
+  if (tabs.firstChild) tabs.firstChild.classList.add("active");
+
+  /******** RENDER FUNCTION ********/
+  function render() {
+    const questionTextDiv = document.getElementById("questionText");
+    const optionsDiv = document.getElementById("options");
+    const qnumsDiv = document.getElementById("qnums");
+    if (!questionTextDiv || !optionsDiv || !qnumsDiv) return;
+
+    document.querySelectorAll(".subject-tab").forEach(t => t.classList.remove("active"));
+    [...tabs.children].find(t => t.textContent === currentSubject).classList.add("active");
+
+    const q = filteredExamData[currentSubject][qIndex];
+    questionTextDiv.textContent = `${qIndex + 1}. ${q.question}`;
+
+    optionsDiv.innerHTML = "";
+    Object.keys(q.options).forEach(k => {
+      const div = document.createElement("div");
+      div.className = "option-circle";
+      div.textContent = q.options[k];
+      if (answers[currentSubject][qIndex] === k) div.classList.add("selected");
+      div.onclick = () => {
+        answers[currentSubject][qIndex] = k;
+        localStorage.setItem("answers", JSON.stringify(answers));
+        render();
+      };
+      optionsDiv.appendChild(div);
+    });
+
+    qnumsDiv.innerHTML = "";
+    filteredExamData[currentSubject].forEach((_, i) => {
+      const d = document.createElement("div");
+      d.className = "qnum " + (answers[currentSubject][i] ? "green" : "red");
+      if (i === qIndex) d.classList.add("current");
+      d.textContent = i + 1;
+      d.onclick = () => { qIndex = i; render(); };
+      qnumsDiv.appendChild(d);
+    });
+  }
+
+  /******** NAVIGATION ********/
+  document.getElementById("prevBtn").onclick = () => { if (qIndex > 0) { qIndex--; render(); } };
+  document.getElementById("nextBtn").onclick = () => {
+    if (qIndex < filteredExamData[currentSubject].length - 1) { qIndex++; render(); }
+    else {
+      const nextSubIndex = subjects.indexOf(currentSubject) + 1;
+      if (nextSubIndex < subjects.length) { currentSubject = subjects[nextSubIndex]; qIndex = 0; render(); }
+    }
+  };
+
+  /******** SUBMIT ********/
+  let examSubmitted = false;
+  function submit(reason) {
+    if (examSubmitted) return;
+    examSubmitted = true;
+
+    let totalRaw = 0;
+    subjects.forEach(s => {
+      filteredExamData[s].forEach((q, i) => {
+        const user = answers[s][i];
+        if (user === q.answer) totalRaw++;
+        else if (user && user !== q.answer) totalRaw -= 0.25;
+      });
+    });
+
+    const totalQuestions = Object.values(filteredExamData).reduce((acc, arr) => acc + arr.length, 0);
+    const jambScore = Math.round((totalRaw / totalQuestions) * 400);
+
+    db.collection("cbtResults").add({
+      candidateName, candidateWhatsApp, fingerprint, subjects, answers,
+      rawScore: totalRaw, jambScore, reason,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      localStorage.removeItem("answers");
+      location.href = "page5.html";
+    }).catch(err => {
+      console.error("Submission error:", err);
+      location.href = "page5.html?error=1";
+    });
+  }
+
+  document.getElementById("submitBtn").onclick = () => { submit("manual"); };
+
+  /******** ANTI-CHEAT ********/
+  document.addEventListener("visibilitychange", () => { if (document.hidden) submit("app_switch"); });
+  window.addEventListener("blur", () => { submit("window_blur"); });
+
+  /******** SHUFFLE ********/
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  /******** INIT ********/
+  render();
+});
+  </script>
 </body>
 </html>
