@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const aiTooltip = document.getElementById("aiTooltip");
 
   const candidateName = localStorage.getItem("candidateName") || "Candidate";
-  const fingerprint = localStorage.getItem("candidateFingerprint");
+  const candidateWA = localStorage.getItem("candidateWhatsApp");
 
   homeBtn.style.display="none";
   contactBtn.style.display="none";
@@ -98,13 +98,14 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   function checkSubmission(){
     spinner.style.display="block";
-    db.collection("cbtResults").where("fingerprint","==",fingerprint).get()
+    // Changed query to use WhatsApp number for verification
+    db.collection("cbtResults").where("candidateWhatsApp","==",candidateWA).get()
     .then(snapshot=>{
       spinner.style.display="none";
       if(!snapshot.empty){
         statusTitle.textContent = "✅ Your exam has been submitted successfully!";
         statusTitle.className="status-title success";
-        statusMsg.innerHTML = `Candidate: <b>${candidateName}</b>`;
+        statusMsg.innerHTML = `Candidate: <b>${candidateName}</b><br><br>Your responses have been securely uploaded. Results are currently under review.`;
         homeBtn.style.display="inline-block";
         homeBtn.href = "https://flexi-systems.github.io/Flexi-Tutors/";
       } else {
@@ -114,7 +115,7 @@ document.addEventListener("DOMContentLoaded",()=>{
         contactBtn.style.display="inline-block";
         aiBtn.style.display="flex";
         contactBtn.href = `https://wa.me/2349079867370?text=${encodeURIComponent("Hello, I am "+candidateName+". My exam submission failed. Please assist.")}`;
-        contactBtn.target = "_blank"; // <-- WhatsApp opens in new tab
+        contactBtn.target = "_blank";
         showTooltip();
       }
     }).catch(err=>{
